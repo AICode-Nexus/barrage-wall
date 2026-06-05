@@ -9,6 +9,10 @@ export async function onRequestGet(context) {
   const roomId = context.params.roomId ?? ''
   const kv = getKV(context)
 
+  if (!kv) {
+    return missingKVResponse()
+  }
+
   if (!isValidRoomId(roomId)) {
     return json({ error: { message: '房间不存在' } }, 404)
   }
@@ -20,6 +24,10 @@ export async function onRequestGet(context) {
 export async function onRequestPost(context) {
   const roomId = context.params.roomId ?? ''
   const kv = getKV(context)
+
+  if (!kv) {
+    return missingKVResponse()
+  }
 
   if (!isValidRoomId(roomId)) {
     return json({ error: { message: '房间不存在' } }, 404)
@@ -93,22 +101,22 @@ async function readRoom(kv, roomId) {
 }
 
 function getKV(context) {
-  if (!context.env.BARRAGE_KV) {
-    throw new Error('Missing BARRAGE_KV binding')
-  }
-
-  return context.env.BARRAGE_KV
+  return context.env?.BARRAGE_KV ?? globalThis.BARRAGE_KV
 }
 
 function roomKey(roomId) {
-  return `room:${roomId}:messages`
+  return `room_${safeKeyPart(roomId)}_messages`
 }
 
 function createClientKey(request, roomId) {
   const forwardedFor = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim()
   const clientIp = forwardedFor || request.headers.get('cf-connecting-ip') || 'unknown'
 
-  return `room:${roomId}:client:${clientIp}:cooldown`
+  return `room_${safeKeyPart(roomId)}_client_${safeKeyPart(clientIp)}_cooldown`
+}
+
+function safeKeyPart(value) {
+  return String(value).replace(/[^A-Za-z0-9_]/g, '_')
 }
 
 function isValidRoomId(roomId) {
@@ -190,4 +198,15 @@ function json(payload, status = 200) {
       'cache-control': 'no-store',
     },
   })
+}
+
+function missingKVResponse() {
+  return json(
+    {
+      error: {
+        message: 'KV 未绑定，请在 EdgeOne Pages 中绑定 BARRAGE_KV',
+      },
+    },
+    500,
+  )
 }

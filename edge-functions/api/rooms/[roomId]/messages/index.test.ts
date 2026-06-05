@@ -21,10 +21,12 @@ class MemoryKV implements EdgeOneKV {
   private readonly values = new Map<string, string>()
 
   async get(key: string) {
+    expect(key).toMatch(/^[A-Za-z0-9_]+$/)
     return this.values.get(key) ?? null
   }
 
   async put(key: string, value: string) {
+    expect(key).toMatch(/^[A-Za-z0-9_]+$/)
     this.values.set(key, value)
   }
 }
@@ -135,6 +137,21 @@ describe('EdgeOne messages function', () => {
     expect(await readJson(second)).toEqual({
       error: {
         message: '发送太快了，请稍后再试',
+      },
+    })
+  })
+
+  it('returns a clear error when KV is not bound', async () => {
+    const response = await onRequestGet({
+      request: new Request('https://example.com/api/rooms/room-a1b2c3d4/messages'),
+      params: { roomId: 'room-a1b2c3d4' },
+      env: {},
+    } as EdgeOneContext)
+
+    expect(response.status).toBe(500)
+    expect(await readJson(response)).toEqual({
+      error: {
+        message: 'KV 未绑定，请在 EdgeOne Pages 中绑定 BARRAGE_KV',
       },
     })
   })
