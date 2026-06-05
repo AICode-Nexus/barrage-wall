@@ -1,6 +1,6 @@
 // @vitest-environment node
 import { describe, expect, it } from 'vitest'
-import { onRequestGet, onRequestPost } from './messages.js'
+import { onRequestGet, onRequestPost } from './index.js'
 
 type EdgeOneKV = {
   get(key: string): Promise<string | null>
