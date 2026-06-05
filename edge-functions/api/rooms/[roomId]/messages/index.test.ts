@@ -31,6 +31,13 @@ class MemoryKV implements EdgeOneKV {
   }
 }
 
+class StrictMemoryKV extends MemoryKV {
+  async put(key: string, value: string, options?: { expirationTtl?: number }) {
+    expect(options).toBeUndefined()
+    await super.put(key, value)
+  }
+}
+
 async function readJson(response: Response) {
   return (await response.json()) as Record<string, unknown>
 }
@@ -51,7 +58,7 @@ function createContext(
 
 describe('EdgeOne messages function', () => {
   it('stores a normalized message and returns recent room messages', async () => {
-    const kv = new MemoryKV()
+    const kv = new StrictMemoryKV()
 
     const post = await onRequestPost(
       createContext(

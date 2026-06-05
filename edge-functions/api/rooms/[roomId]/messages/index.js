@@ -6,73 +6,81 @@ const RECENT_LIMIT = 100
 const POST_COOLDOWN_MS = 2000
 
 export async function onRequestGet(context) {
-  const roomId = context.params.roomId ?? ''
-  const kv = getKV(context)
+  try {
+    const roomId = context.params.roomId ?? ''
+    const kv = getKV(context)
 
-  if (!kv) {
-    return missingKVResponse()
+    if (!kv) {
+      return missingKVResponse()
+    }
+
+    if (!isValidRoomId(roomId)) {
+      return json({ error: { message: '房间不存在' } }, 404)
+    }
+
+    const room = await readRoom(kv, roomId)
+    return json({ messages: room.messages.slice(-RECENT_LIMIT) })
+  } catch (error) {
+    return functionErrorResponse(error)
   }
-
-  if (!isValidRoomId(roomId)) {
-    return json({ error: { message: '房间不存在' } }, 404)
-  }
-
-  const room = await readRoom(kv, roomId)
-  return json({ messages: room.messages.slice(-RECENT_LIMIT) })
 }
 
 export async function onRequestPost(context) {
-  const roomId = context.params.roomId ?? ''
-  const kv = getKV(context)
+  try {
+    const roomId = context.params.roomId ?? ''
+    const kv = getKV(context)
 
-  if (!kv) {
-    return missingKVResponse()
-  }
+    if (!kv) {
+      return missingKVResponse()
+    }
 
-  if (!isValidRoomId(roomId)) {
-    return json({ error: { message: '房间不存在' } }, 404)
-  }
+    if (!isValidRoomId(roomId)) {
+      return json({ error: { message: '房间不存在' } }, 404)
+    }
 
-  const body = await readJsonBody(context.request)
-  const validation = validateDraft({
-    body: typeof body.body === 'string' ? body.body : '',
-    nickname: typeof body.nickname === 'string' ? body.nickname : null,
-  })
+    const body = await readJsonBody(context.request)
+    const validation = validateDraft({
+      body: typeof body.body === 'string' ? body.body : '',
+      nickname: typeof body.nickname === 'string' ? body.nickname : null,
+    })
 
-  if (!validation.valid) {
-    return json(
-      {
-        error: {
-          field: validation.field,
-          message: validation.message,
+    if (!validation.valid) {
+      return json(
+        {
+          error: {
+            field: validation.field,
+            message: validation.message,
+          },
         },
-      },
-      422,
-    )
+        422,
+      )
+    }
+
+    const clientKey = createClientKey(context.request, roomId)
+    const lastPostAt = Number((await kv.get(clientKey)) ?? 0)
+    const now = Date.now()
+
+    if (now - lastPostAt < POST_COOLDOWN_MS) {
+      return json({ error: { message: '发送太快了，请稍后再试' } }, 429)
+    }
+
+    const room = await readRoom(kv, roomId)
+    const message = createClientMessage({
+      roomId,
+      body: validation.value.body,
+      nickname: validation.value.nickname,
+    })
+    const nextRoom = {
+      messages: [...room.messages, message].slice(-MAX_STORED_MESSAGES),
+    }
+
+    await kv.put(roomKey(roomId), JSON.stringify(nextRoom))
+    await kv.put(clientKey, String(now))
+
+    return json({ message }, 201)
+  } catch (error) {
+    return functionErrorResponse(error)
   }
-
-  const clientKey = createClientKey(context.request, roomId)
-  const lastPostAt = Number((await kv.get(clientKey)) ?? 0)
-  const now = Date.now()
-
-  if (now - lastPostAt < POST_COOLDOWN_MS) {
-    return json({ error: { message: '发送太快了，请稍后再试' } }, 429)
-  }
-
-  const room = await readRoom(kv, roomId)
-  const message = createClientMessage({
-    roomId,
-    body: validation.value.body,
-    nickname: validation.value.nickname,
-  })
-  const nextRoom = {
-    messages: [...room.messages, message].slice(-MAX_STORED_MESSAGES),
-  }
-
-  await kv.put(roomKey(roomId), JSON.stringify(nextRoom))
-  await kv.put(clientKey, String(now), { expirationTtl: 10 })
-
-  return json({ message }, 201)
 }
 
 async function readJsonBody(request) {
@@ -205,6 +213,17 @@ function missingKVResponse() {
     {
       error: {
         message: 'KV 未绑定，请在 EdgeOne Pages 中绑定 BARRAGE_KV',
+      },
+    },
+    500,
+  )
+}
+
+function functionErrorResponse(error) {
+  return json(
+    {
+      error: {
+        message: error instanceof Error ? error.message : 'EdgeOne Function 执行失败',
       },
     },
     500,

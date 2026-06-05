@@ -8,7 +8,7 @@ export type BarrageApi = {
 export const api: BarrageApi = {
   async getMessages(roomId) {
     const response = await fetch(`/api/rooms/${roomId}/messages`)
-    const data = (await response.json()) as { messages?: ClientMessage[] }
+    const data = (await readJsonResponse(response)) as { messages?: ClientMessage[] }
 
     if (!response.ok) {
       throw new Error('加载弹幕失败')
@@ -25,7 +25,7 @@ export const api: BarrageApi = {
       },
       body: JSON.stringify(draft),
     })
-    const data = (await response.json()) as {
+    const data = (await readJsonResponse(response)) as {
       message?: ClientMessage
       error?: { message?: string }
     }
@@ -36,4 +36,22 @@ export const api: BarrageApi = {
 
     return data.message
   },
+}
+
+async function readJsonResponse(response: Response) {
+  const text = await response.text()
+
+  if (!text) {
+    return {}
+  }
+
+  try {
+    return JSON.parse(text) as unknown
+  } catch {
+    return {
+      error: {
+        message: text.slice(0, 120),
+      },
+    }
+  }
 }
