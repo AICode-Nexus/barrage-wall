@@ -1,4 +1,6 @@
-# 公网 IP 部署说明
+# 公网 IP/VPS 备用部署说明
+
+> 当前首选部署方式是 EdgeOne Pages，见 `docs/deploy-edgeone.md`。本文件仅用于未来有 VPS 或公网 IP 时的备用部署。
 
 ## 适用场景
 

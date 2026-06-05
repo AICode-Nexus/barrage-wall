@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Maximize2, QrCode, RefreshCw, Wifi, WifiOff } from 'lucide-react'
+import { Maximize2, QrCode, RefreshCw, RotateCw, Wifi, WifiOff } from 'lucide-react'
 import { QRCodeSVG } from 'qrcode.react'
 import type { ClientMessage } from '../../shared/message'
 import { createRoomId } from '../../shared/message'
 import { DanmakuStage } from '../components/DanmakuStage'
 import type { BarrageApi } from '../lib/api'
+import { mergeMessagesById } from '../lib/polling'
 import { buildSendUrl, createWallHash } from '../lib/routing'
-import { connectRoom } from '../lib/realtime'
 
 type WallPageProps = {
   roomId: string
@@ -23,36 +23,28 @@ export function WallPage({ roomId, api }: WallPageProps) {
   useEffect(() => {
     let mounted = true
 
-    api
-      .getMessages(roomId)
-      .then((nextMessages) => {
+    async function pollMessages() {
+      try {
+        const nextMessages = await api.getMessages(roomId)
         if (mounted) {
-          setMessages(nextMessages)
+          setMessages((current) => mergeMessagesById(current, nextMessages, 140))
           setLoadError(null)
+          setStatus('connected')
         }
-      })
-      .catch(() => {
+      } catch {
         if (mounted) {
-          setLoadError('历史弹幕加载失败，新的弹幕仍会继续显示')
+          setLoadError('弹幕同步失败，正在重试')
+          setStatus('disconnected')
         }
-      })
+      }
+    }
 
-    const disconnect = connectRoom(roomId, {
-      onStatus: setStatus,
-      onMessage: (message) => {
-        setMessages((current) => {
-          if (current.some((item) => item.id === message.id)) {
-            return current
-          }
-
-          return [...current, message].slice(-140)
-        })
-      },
-    })
+    void pollMessages()
+    const intervalId = window.setInterval(pollMessages, 1000)
 
     return () => {
       mounted = false
-      disconnect()
+      window.clearInterval(intervalId)
     }
   }, [api, roomId])
 
@@ -71,7 +63,7 @@ export function WallPage({ roomId, api }: WallPageProps) {
           </div>
           <div className={`connection-pill ${status}`}>
             {status === 'connected' ? <Wifi aria-hidden="true" size={18} /> : <WifiOff aria-hidden="true" size={18} />}
-            {status === 'connected' ? '实时连接中' : status === 'connecting' ? '正在连接' : '连接已断开'}
+            {status === 'connected' ? '每秒同步中' : status === 'connecting' ? '正在同步' : '同步重试中'}
           </div>
         </header>
 
@@ -97,7 +89,7 @@ export function WallPage({ roomId, api }: WallPageProps) {
             新建房间
           </button>
           <div className="message-count">
-            <Maximize2 aria-hidden="true" size={18} />
+            {status === 'connected' ? <Maximize2 aria-hidden="true" size={18} /> : <RotateCw aria-hidden="true" size={18} />}
             <span>{messages.length} 条弹幕</span>
           </div>
         </footer>
