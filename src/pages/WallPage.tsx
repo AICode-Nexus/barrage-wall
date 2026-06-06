@@ -6,25 +6,27 @@ import { createRoomId } from '../../shared/message'
 import { DanmakuStage } from '../components/DanmakuStage'
 import type { BarrageApi } from '../lib/api'
 import { mergeMessagesById } from '../lib/polling'
-import { buildSendUrl, createWallHash } from '../lib/routing'
+import { buildSendUrl, createWallHash, hasEdgeOnePreviewAccess, type LocationLike } from '../lib/routing'
 
 const PREVIEW_LINK_STORAGE_KEY = 'barrage-preview-base-url'
 
 type WallPageProps = {
   roomId: string
   api: Pick<BarrageApi, 'getMessages'>
+  location?: LocationLike
 }
 
 function readPreviewBaseUrl() {
   return window.sessionStorage.getItem(PREVIEW_LINK_STORAGE_KEY) ?? ''
 }
 
-export function WallPage({ roomId, api }: WallPageProps) {
+export function WallPage({ roomId, api, location = window.location }: WallPageProps) {
   const [messages, setMessages] = useState<ClientMessage[]>([])
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting')
   const [loadError, setLoadError] = useState<string | null>(null)
   const [previewBaseUrl, setPreviewBaseUrl] = useState(readPreviewBaseUrl)
-  const sendUrl = useMemo(() => buildSendUrl(window.location, roomId, previewBaseUrl), [previewBaseUrl, roomId])
+  const sendUrl = useMemo(() => buildSendUrl(location, roomId, previewBaseUrl), [location, previewBaseUrl, roomId])
+  const qrReady = useMemo(() => hasEdgeOnePreviewAccess(location, previewBaseUrl), [location, previewBaseUrl])
   const latestMessages = messages.slice(-6).reverse()
 
   useEffect(() => {
@@ -83,7 +85,14 @@ export function WallPage({ roomId, api }: WallPageProps) {
 
         <aside className="qr-panel" aria-label="扫码发送弹幕">
           <div className="qr-box">
-            <QRCodeSVG value={sendUrl} size={204} marginSize={2} />
+            {qrReady ? (
+              <QRCodeSVG aria-label="投稿二维码" value={sendUrl} size={204} marginSize={2} role="img" />
+            ) : (
+              <div className="qr-waiting">
+                <QrCode aria-hidden="true" size={40} />
+                <strong>先粘贴 Preview 完整链接</strong>
+              </div>
+            )}
           </div>
           <div className="qr-copy">
             <QrCode aria-hidden="true" size={20} />
@@ -102,7 +111,7 @@ export function WallPage({ roomId, api }: WallPageProps) {
               value={previewBaseUrl}
             />
           </label>
-          <p>{sendUrl}</p>
+          <p>{qrReady ? sendUrl : '等待 EdgeOne 预览鉴权链接'}</p>
         </aside>
 
         <footer className="wall-footer">

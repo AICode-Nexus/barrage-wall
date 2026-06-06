@@ -4,6 +4,7 @@ import {
   buildSendUrl,
   createSendHash,
   createWallHash,
+  hasEdgeOnePreviewAccess,
   parseHashRoute,
 } from './routing'
 
@@ -64,5 +65,55 @@ describe('hash routing', () => {
         '#/wall/room-a1b2c3d4',
       ),
     ).toBe('https://barrage-wall.edgeone.cool/?eo_token=abc&eo_time=1780655333#/wall/room-a1b2c3d4')
+  })
+
+  it('detects whether an EdgeOne preview URL includes usable access credentials', () => {
+    expect(
+      hasEdgeOnePreviewAccess(
+        {
+          origin: 'https://barrage-wall.edgeone.cool',
+          pathname: '/',
+          search: '?eo_token=abc&eo_time=1780738035',
+        },
+        undefined,
+        1780734435,
+      ),
+    ).toBe(true)
+
+    expect(
+      hasEdgeOnePreviewAccess(
+        {
+          origin: 'https://barrage-wall.edgeone.cool',
+          pathname: '/',
+          search: '',
+        },
+        undefined,
+        1780734435,
+      ),
+    ).toBe(false)
+
+    expect(
+      hasEdgeOnePreviewAccess(
+        {
+          origin: 'https://barrage-wall.edgeone.cool',
+          pathname: '/',
+          search: '?eo_token=abc&eo_time=1780734375',
+        },
+        undefined,
+        1780734435,
+      ),
+    ).toBe(false)
+
+    expect(
+      hasEdgeOnePreviewAccess(
+        {
+          origin: 'http://203.0.113.10:8080',
+          pathname: '/',
+          search: '',
+        },
+        undefined,
+        1780734435,
+      ),
+    ).toBe(true)
   })
 })

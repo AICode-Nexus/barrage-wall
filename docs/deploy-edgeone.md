@@ -44,7 +44,7 @@ BARRAGE_KV
 
 1. 大屏打开 EdgeOne 预览链接。
 2. 页面自动进入 `#/wall/:roomId` 并显示二维码。
-3. 确认二维码下方投稿链接包含 `eo_token/eo_time`；如果没有，粘贴 Preview 完整链接。
+3. 确认二维码下方投稿链接包含 `eo_token/eo_time`；如果显示 `先粘贴 Preview 完整链接`，粘贴 Preview 完整链接。
 4. 手机扫码进入 `#/send/:roomId`。
 5. 发送一条弹幕。
 6. 大屏 1 秒左右出现弹幕。

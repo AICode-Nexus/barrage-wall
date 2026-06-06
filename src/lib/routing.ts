@@ -30,25 +30,44 @@ export function createSendHash(roomId: string) {
   return `#/send/${roomId}`
 }
 
-type LocationLike = Pick<Location, 'origin' | 'pathname' | 'search'>
+export type LocationLike = Pick<Location, 'origin' | 'pathname' | 'search'>
 
-function createBaseUrl(location: LocationLike, baseUrl?: string) {
+function parseBaseUrl(location: LocationLike, baseUrl?: string) {
+  const fallbackUrl = new URL(`${location.origin}${location.pathname}${location.search}`)
+
   if (!baseUrl?.trim()) {
-    return `${location.origin}${location.pathname}${location.search}`
+    return fallbackUrl
   }
 
   try {
-    const parsed = new URL(baseUrl.trim())
-    return `${parsed.origin}${parsed.pathname}${parsed.search}`
+    return new URL(baseUrl.trim())
   } catch {
-    return `${location.origin}${location.pathname}${location.search}`
+    return fallbackUrl
   }
 }
 
 export function buildHashUrl(location: LocationLike, hash: string, baseUrl?: string) {
-  return `${createBaseUrl(location, baseUrl)}${hash}`
+  const parsed = parseBaseUrl(location, baseUrl)
+  return `${parsed.origin}${parsed.pathname}${parsed.search}${hash}`
 }
 
 export function buildSendUrl(location: LocationLike, roomId: string, baseUrl?: string) {
   return buildHashUrl(location, createSendHash(roomId), baseUrl)
+}
+
+export function hasEdgeOnePreviewAccess(location: LocationLike, baseUrl?: string, nowSeconds = Math.floor(Date.now() / 1000)) {
+  const parsed = parseBaseUrl(location, baseUrl)
+
+  if (!parsed.hostname.endsWith('.edgeone.cool')) {
+    return true
+  }
+
+  const token = parsed.searchParams.get('eo_token')
+  const previewTime = Number(parsed.searchParams.get('eo_time'))
+
+  if (!token || !Number.isFinite(previewTime)) {
+    return false
+  }
+
+  return previewTime > nowSeconds
 }
