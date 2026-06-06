@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { createRoomId } from '../shared/message'
 import './App.css'
 import { api } from './lib/api'
-import { createWallHash, parseHashRoute } from './lib/routing'
+import { buildHashUrl, createWallHash, parseHashRoute } from './lib/routing'
 import { SendPage } from './pages/SendPage'
 import { WallPage } from './pages/WallPage'
 
@@ -34,7 +34,7 @@ function App() {
       <SendPage
         api={api}
         roomId={route.roomId}
-        wallUrl={`${window.location.origin}${window.location.pathname}${window.location.search}${createWallHash(route.roomId)}`}
+        wallUrl={buildHashUrl(window.location, createWallHash(route.roomId))}
       />
     )
   }

@@ -8,16 +8,23 @@ import type { BarrageApi } from '../lib/api'
 import { mergeMessagesById } from '../lib/polling'
 import { buildSendUrl, createWallHash } from '../lib/routing'
 
+const PREVIEW_LINK_STORAGE_KEY = 'barrage-preview-base-url'
+
 type WallPageProps = {
   roomId: string
   api: Pick<BarrageApi, 'getMessages'>
+}
+
+function readPreviewBaseUrl() {
+  return window.sessionStorage.getItem(PREVIEW_LINK_STORAGE_KEY) ?? ''
 }
 
 export function WallPage({ roomId, api }: WallPageProps) {
   const [messages, setMessages] = useState<ClientMessage[]>([])
   const [status, setStatus] = useState<'connecting' | 'connected' | 'disconnected'>('connecting')
   const [loadError, setLoadError] = useState<string | null>(null)
-  const sendUrl = useMemo(() => buildSendUrl(window.location, roomId), [roomId])
+  const [previewBaseUrl, setPreviewBaseUrl] = useState(readPreviewBaseUrl)
+  const sendUrl = useMemo(() => buildSendUrl(window.location, roomId, previewBaseUrl), [previewBaseUrl, roomId])
   const latestMessages = messages.slice(-6).reverse()
 
   useEffect(() => {
@@ -52,6 +59,11 @@ export function WallPage({ roomId, api }: WallPageProps) {
     window.location.hash = createWallHash(createRoomId())
   }
 
+  function updatePreviewBaseUrl(value: string) {
+    setPreviewBaseUrl(value)
+    window.sessionStorage.setItem(PREVIEW_LINK_STORAGE_KEY, value)
+  }
+
   return (
     <main className="wall-page">
       <section className="wall-stage">
@@ -80,6 +92,16 @@ export function WallPage({ roomId, api }: WallPageProps) {
               <span>{roomId}</span>
             </div>
           </div>
+          <label className="preview-link-field">
+            <span>EdgeOne 预览访问链接</span>
+            <input
+              aria-label="EdgeOne 预览访问链接"
+              onChange={(event) => updatePreviewBaseUrl(event.target.value)}
+              placeholder="粘贴 Preview 完整链接"
+              type="url"
+              value={previewBaseUrl}
+            />
+          </label>
           <p>{sendUrl}</p>
         </aside>
 
